@@ -29,16 +29,107 @@
  * Helper Libraries
  */
 #include "response.h"
+#include "request.h"
 
-#define PORT 8000
+int PORT = 8000;
+char path[1024];
 
+/*
+ * Hypertext Transfer Protocol 1.1 semantics
+ * are taken from:
+ * https://tools.ietf.org/html/rfc7231
+ * 
+ * accept_request(int) processes the request
+ * from the client
+ * 
+ * A typical header format is:
+ * GET /path/file.html HTTP/1.1
+ * Host: www.host1.com:80
+ * [blank line here]
+ */
 void accept_request(int client)
 {
-    serve_file(client, "test.html");
+    char buf[1024];
+    char url[255];
+    char method[255];
+    char filepath[255];
+    char *query;
+
+    int ex = 0;
+    int n = 0;
+    
+    n = readline(client, buf, sizeof(buf));
+
+    size_t i = 0, j = 0;
+    while(i < n && buf[i] != ' ') {
+        method[j++] = i++;
+    }
+    buf[j] = 0;
+    j = 0;
+    i++;
+
+    if (strcmp(buf, "GET") && strcmp(buf, "POST")) {
+        http_bad_request(client);
+        close(client);
+        return;
+    }
+
+    while(i < n && buf[i] != ' ') {
+        url[j++] = buf[i++];
+    }
+    url[j] = 0;
+    j = 0;
+
+    if (!strcmp(method, "GET")) {
+        query = url;
+
+        while((*query) != '?' && (*query) != '\0') {
+            query++;
+        }
+        if ((*query) == '?') {
+            ex = 1;
+            *query = '\0';
+            query++;
+        }
+    }
+
+    sprintf(filepath, "%s%s", path, url);
+    if (filepath[strlen(filepath) - 1] == '/') {
+        strcat(filepath, "index.html");
+    }
+
+    printf("%s\n", filepath);
+    if (!ex) {
+        serve_file(client, filepath);
+    }
+
+    /*
+     * o The proper way to close the client is to call
+     *   shutdown to trigger a FIN
+     * o After that call recv() and wait until it is anything
+     *   other than EAGAIN, EWOULDBLOCK
+     * o Close the client
+     */
+    shutdown(client, SHUT_WR);
+    char c;
+    do{
+        recv(client, &c, 1, 0);
+    } while (c == EAGAIN || c == EWOULDBLOCK);
+    close(client);
 }
 
 int main(int argc, char *argv[])
 {
+    if (argc < 2) {
+        printf("Usage:\n./minihttpd [server_dir] [PORT]\n\n");
+        exit(1);
+    }
+    strcpy(path, argv[1]);
+
+    if (argc > 2) {
+        PORT = atoi(argv[2]);
+    }
+
     int server_sock = -1;
     int client_sock = -1;
 

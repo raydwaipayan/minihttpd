@@ -4,7 +4,7 @@ void http_ok(int client, char *filename)
 {
     char buf[1024];
 
-    strcpy(buf, "HTTP/1.0 200 OK\r\n");
+    strcpy(buf, "HTTP/1.1 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
     strcpy(buf, SRVSTR);
     send(client, buf, strlen(buf), 0);
@@ -18,7 +18,7 @@ void http_not_found(int client)
 {
     char buf[1024];
 
-    sprintf(buf, "HTTP/1.0 404 NOT FOUND\r\n");
+    sprintf(buf, "HTTP/1.1 404 NOT FOUND\r\n");
     send(client, buf, strlen(buf), 0);
     sprintf(buf, SRVSTR);
     send(client, buf, strlen(buf), 0);
@@ -38,9 +38,31 @@ void http_not_found(int client)
     send(client, buf, strlen(buf), 0);
 }
 
+void http_bad_request(int client)
+{
+    char buf[1024];
+
+    sprintf(buf, "HTTP/1.1 400 Bad Request\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, SRVSTR);
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "Content-Type: text/html\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "<HTML><TITLE>BAD REQUEST</TITLE>\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "<BODY><P>The server could not fulfill\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "your request because the request is invalid\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "</BODY></HTML>\r\n");
+    send(client, buf, strlen(buf), 0);
+}
+
 void serve_file(int client, char *filename)
 {
-    FILE *fd;
+    FILE *fd = NULL;
     fd = fopen(filename, "r");
 
     if (!fd) {
@@ -54,8 +76,8 @@ void serve_file(int client, char *filename)
             send(client, buf, strlen(buf), 0);
         } while(!feof(fd));
     }
-
-    fclose(fd);
+    if (fd)
+        fclose(fd);
 }
 
 void http_unimplemented(int client)
