@@ -62,13 +62,13 @@ void accept_request(int client)
 
     size_t i = 0, j = 0;
     while(i < n && buf[i] != ' ') {
-        method[j++] = i++;
+        method[j++] = buf[i++];
     }
-    buf[j] = 0;
+    method[j] = 0;
     j = 0;
     i++;
 
-    if (strcmp(buf, "GET") && strcmp(buf, "POST")) {
+    if (strcmp(method, "GET") && strcmp(method, "POST")) {
         http_bad_request(client);
         close(client);
         return;
@@ -98,7 +98,7 @@ void accept_request(int client)
         strcat(filepath, "index.html");
     }
 
-    printf("%s\n", filepath);
+    printf("%s: %s\n", method, filepath);
     if (!ex) {
         serve_file(client, filepath);
     }
