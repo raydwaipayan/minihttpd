@@ -4,6 +4,7 @@ minihttpd
 A tiny httpd server to serve static content and php scripts.
 
 ## Usage
+
 ```bash
 ./minihttpd [Directory] [PORT (default = 8000)]
 ```
@@ -11,6 +12,8 @@ A tiny httpd server to serve static content and php scripts.
 ## Build
 
 The binary can be built by simply running:
-```make```
+```bash
+make
+```
 
 The minihttpd binary is deployed to `./build`
