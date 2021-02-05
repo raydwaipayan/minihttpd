@@ -34,6 +34,9 @@
 int PORT = 8000;
 char path[1024];
 
+void accept_request(int client);
+void execute_cgi(int client, char *path, char *method, char *query);
+
 /*
  * Hypertext Transfer Protocol 1.1 semantics
  * are taken from:
@@ -101,6 +104,8 @@ void accept_request(int client)
     printf("%s: %s\n", method, filepath);
     if (!ex) {
         serve_file(client, filepath);
+    } else {
+        execute_cgi(client, path, method, query);
     }
 
     /*
@@ -116,6 +121,11 @@ void accept_request(int client)
         recv(client, &c, 1, 0);
     } while (c == EAGAIN || c == EWOULDBLOCK);
     close(client);
+}
+
+void execute_cgi(int client, char *path, char *method, char *query)
+{
+    
 }
 
 int main(int argc, char *argv[])
