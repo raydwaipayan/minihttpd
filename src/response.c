@@ -60,6 +60,20 @@ void http_bad_request(int client)
     send(client, buf, strlen(buf), 0);
 }
 
+void http_server_error(int client)
+{
+    char buf[1024];
+
+    sprintf(buf, "HTTP/1.0 500 Internal Server Error\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "Content-type: text/html\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "\r\n");
+    send(client, buf, strlen(buf), 0);
+    sprintf(buf, "<P>The server encountered an error.\r\n");
+    send(client, buf, strlen(buf), 0);
+}
+
 void serve_file(int client, char *filename)
 {
     FILE *fd = NULL;

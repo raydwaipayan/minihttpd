@@ -16,17 +16,23 @@ void http_ok(int client, char *filename);
  */
 void http_not_found(int client);
 
-/*
+/**
  * http_bad_request() - Write 400 bad request
  */
 void http_bad_request(int client);
 
-/*
+/**
+ * http_server_error() - Write 500 headers in case of
+ *                       an internal server error
+ */
+void http_server_error(int client);
+
+/**
  * server_file() - Write file contents to response body
  */
 void serve_file(int client, char *filename);
 
-/*
+/**
  * http_unimplemented() - Write http headers for unimplmented
  *                        methods
  */
