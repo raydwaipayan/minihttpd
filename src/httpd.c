@@ -35,7 +35,7 @@
 /**
  * Set to 1 to enable FAST_CGI
  */
-#define FAST_CGI 1
+#define FAST_CGI 0
 
 int PORT = 8000;
 char path[1024];
@@ -264,7 +264,7 @@ void execute_cgi(int client, char *url, char *path, char *method, char *query)
         /**
          * Call the script using exec() system call
          */
-#ifndef FAST_CGI
+#if FAST_CGI == 0
         execl("/usr/bin/php-cgi",
               "/usr/bin/php-cgi", path, 0);
 #else
