@@ -13,6 +13,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <linux/limits.h>
 
 /**
  * Socket Headers
@@ -31,12 +32,17 @@
 #include "response.h"
 #include "request.h"
 
+/**
+ * Set to 1 to enable FAST_CGI
+ */
+#define FAST_CGI 1
+
 int PORT = 8000;
 char path[1024];
 
 void accept_request(int client);
 void shutdown_client(int client); 
-void execute_cgi(int client, char *path, char *method, char *query);
+void execute_cgi(int client, char * url, char *path, char *method, char *query);
 
 /**
  * Hypertext Transfer Protocol 1.1 semantics
@@ -104,11 +110,19 @@ void accept_request(int client)
         ex = 1;
     }
 
+    char real[PATH_MAX];
+    char *res = realpath(filepath, real);
+    if (!res) {
+        http_not_found(client);
+        return;
+    }
+
+    strncpy(filepath, real, sizeof(filepath));
     printf("%s: %s\n", method, filepath);
     if (!ex) {
         serve_file(client, filepath);
     } else {
-        execute_cgi(client, filepath, method, query);
+        execute_cgi(client, url, filepath, method, query);
     }
 
     shutdown_client(client);
@@ -131,7 +145,7 @@ void shutdown_client(int client)
     close(client);
 }
 
-void execute_cgi(int client, char *path, char *method, char *query)
+void execute_cgi(int client, char *url, char *path, char *method, char *query)
 {
     char buf[1024];
     char body[1024];
@@ -228,6 +242,13 @@ void execute_cgi(int client, char *path, char *method, char *query)
         char method_env[1024];
         char query_env[1024];
         char length_env[1024];
+        char temp_env[1024];
+
+        sprintf(temp_env, "SCRIPT_NAME=%s", url);
+        putenv(temp_env);
+
+        sprintf(temp_env, "SCRIPT_FILENAME=%s", path);
+        putenv(temp_env);
 
         sprintf(method_env, "REQUEST_METHOD=%s", method);
         putenv(method_env);
@@ -243,7 +264,14 @@ void execute_cgi(int client, char *path, char *method, char *query)
         /**
          * Call the script using exec() system call
          */
-        execl(path, path, 0);
+#ifndef FAST_CGI
+        execl("/usr/bin/php-cgi",
+              "/usr/bin/php-cgi", path, 0);
+#else
+        execl("/usr/bin/cgi-fcgi",
+              "/usr/bin/cgi-fcgi", "-bind", "-connect", 
+              "/var/run/php-fpm/php-fpm.sock");
+#endif
         exit(0);
     } else {
         /**
