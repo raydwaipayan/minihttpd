@@ -13,7 +13,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <linux/limits.h>
+#include <limits.h>
 
 /**
  * Socket Headers
@@ -110,6 +110,9 @@ void accept_request(int client)
         ex = 1;
     }
 
+#ifndef PATH_MAX
+    #define PATH_MAX 4096
+#endif
     char real[PATH_MAX];
     char *res = realpath(filepath, real);
     if (!res) {
