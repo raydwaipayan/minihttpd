@@ -105,7 +105,12 @@ void accept_request(int client)
 
     sprintf(filepath, "%s%s", path, url);
     if (filepath[strlen(filepath) - 1] == '/') {
-        strcat(filepath, "index.html");
+        if (strcmp(method, "GET") == 0) {
+            strcat(filepath, "index.html");
+        } else {
+            strcat(filepath, "index.php");
+            ex = 1;
+        }
     } else if (strcmp(filepath + strlen(filepath) - 3, "php") == 0) {
         ex = 1;
     }
@@ -151,9 +156,7 @@ void shutdown_client(int client)
 void execute_cgi(int client, char *url, char *path, char *method, char *query)
 {
     char buf[1024];
-    char body[1024];
-    body[0] = 0;
-
+    char post_data[4096];
     /**
      * pipe file descriptors
      * pipefdi is used by cgi as input
@@ -163,7 +166,9 @@ void execute_cgi(int client, char *url, char *path, char *method, char *query)
     int pipefdo[2];
 
     int n = 1;
-    int content_length = -1;
+    char content_type[1024];
+    content_type[0] = 0;
+    int content_length = 0;
     int pid;
 
     /**
@@ -192,18 +197,21 @@ void execute_cgi(int client, char *url, char *path, char *method, char *query)
         do {
             n = readline(client, buf, sizeof(buf));
 
-            if (strncmp("Content-Length:", buf, 15) == 0)
+            if (strncmp("Content-Length:", buf, 15) == 0) {
                 content_length = atoi(&buf[16]);
-        } while(n > 0 && strcmp("\n", buf));
-        
-        if (content_length == -1) {
-            http_bad_request(client);
-            return;
+            }
+            if (strncmp("Content-Type:", buf, 13) == 0) {
+                strcpy(content_type, &buf[14]);
+            }
+        } while(n > 0);
+
+        char c;
+        size_t i = 0;
+        for (; i < content_length; i++) {
+            recv(client, &c, 1, 0);
+            post_data[i] = c;
         }
-        n = readline(client, buf, sizeof(buf));
-        if (n > 0) {
-            strcpy(body, buf);
-        }
+        post_data[i] = 0;
     }
 
     sprintf(buf, "HTTP/1.0 200 OK\r\n");
@@ -242,26 +250,31 @@ void execute_cgi(int client, char *url, char *path, char *method, char *query)
         close(pipefdo[1]);
         close(pipefdi[0]);
 
-        char method_env[1024];
-        char query_env[1024];
-        char length_env[1024];
-        char temp_env[1024];
+        char script_name_env[1024];
+        char script_filename_env[1024];
+        char request_method_env[1024];
+        char query_string_env[1024];
+        char content_length_env[1024];
+        char content_type_env[1024];
 
-        sprintf(temp_env, "SCRIPT_NAME=%s", url);
-        putenv(temp_env);
+        sprintf(script_name_env, "SCRIPT_NAME=%s", url);
+        putenv(script_name_env);
 
-        sprintf(temp_env, "SCRIPT_FILENAME=%s", path);
-        putenv(temp_env);
+        sprintf(script_filename_env, "SCRIPT_FILENAME=%s", path);
+        putenv(script_filename_env);
 
-        sprintf(method_env, "REQUEST_METHOD=%s", method);
-        putenv(method_env);
+        sprintf(request_method_env, "REQUEST_METHOD=%s", method);
+        putenv(request_method_env);
 
         if (strcmp(method, "GET") == 0) {
-            sprintf(query_env, "QUERY_STRING=%s", query);
-            putenv(query_env);
+            sprintf(query_string_env, "QUERY_STRING=%s", query);
+            putenv(query_string_env);
         } else {
-            sprintf(length_env, "CONTENT_LENGTH=%s", content_length);
-            putenv(length_env);
+            sprintf(content_length_env, "CONTENT_LENGTH=%d", content_length);
+            putenv(content_length_env);
+
+            sprintf(content_type_env, "CONTENT_TYPE=%s", content_type);
+            putenv(content_type_env);
         }
 
         /**
@@ -286,7 +299,7 @@ void execute_cgi(int client, char *url, char *path, char *method, char *query)
         char c;
         if (strcmp(method, "POST") == 0) {
             for (int i = 0; i < content_length; i++) {
-                recv(client, &c, 1, 0);
+                c = post_data[i];
                 write(pipefdi[1], &c, 1);
             }
         }
