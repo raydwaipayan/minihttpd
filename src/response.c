@@ -1,6 +1,6 @@
 #include <response.h>
 
-void http_ok(int client, char *filename)
+void http_ok(int client, char *mimetype, char *filename)
 {
     char buf[1024];
 
@@ -8,7 +8,7 @@ void http_ok(int client, char *filename)
     send(client, buf, strlen(buf), 0);
     strcpy(buf, SRVSTR);
     send(client, buf, strlen(buf), 0);
-    sprintf(buf, "Content-Type: text/html\r\n");
+    sprintf(buf, "Content-Type: %s\r\n", mimetype);
     send(client, buf, strlen(buf), 0);
     strcpy(buf, "\r\n");
     send(client, buf, strlen(buf), 0);
@@ -74,7 +74,7 @@ void http_server_error(int client)
     send(client, buf, strlen(buf), 0);
 }
 
-void serve_file(int client, char *filename)
+void serve_file(int client, char *mimetype, char *filename)
 {
     FILE *fd = NULL;
     fd = fopen(filename, "r");
@@ -82,10 +82,11 @@ void serve_file(int client, char *filename)
     if (!fd) {
         http_not_found(client);
     } else {
-        http_ok(client, filename);
+        http_ok(client, mimetype, filename);
 
         char buf[1024];
         do {
+            memset(buf, 0, sizeof(buf));
             fgets(buf, sizeof(buf), fd);
             send(client, buf, strlen(buf), 0);
         } while(!feof(fd));

@@ -9,7 +9,7 @@
  * http_ok() - Write http headers to socket
  *             for a successful response
  */
-void http_ok(int client, char *filename);
+void http_ok(int client, char *mimetype, char *filename);
 
 /*
  * http_not_found() - Write 404 not found error
@@ -30,7 +30,7 @@ void http_server_error(int client);
 /**
  * server_file() - Write file contents to response body
  */
-void serve_file(int client, char *filename);
+void serve_file(int client, char *mimetype, char *filename);
 
 /**
  * http_unimplemented() - Write http headers for unimplmented

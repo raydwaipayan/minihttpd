@@ -1,13 +1,3 @@
-/**
- * Mini http server in c
- * 
- * Create socket with socket() call
- * bind() this to an IP and port where it can
- * listen() for connections, then
- * accept() connection and send() or receive() data 
- * to/from connected sockets
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,7 +5,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-/**
+/*
  * Socket Headers
  */
 #include <sys/types.h>
@@ -26,13 +16,13 @@
 #include <pthread.h>
 #include <sys/wait.h>
 
-/**
+/*
  * Helper Libraries
  */
 #include "response.h"
 #include "request.h"
 
-/**
+/*
  * Set to 1 to enable FAST_CGI
  */
 #define FAST_CGI 0
@@ -40,7 +30,22 @@
 int PORT = 8000;
 char path[1024];
 
-void accept_request(int client);
+/*
+ * MIME types
+ */
+enum mime_type {
+    html,
+    css,
+    js
+};
+
+static char *mime_values[] = {
+    "text/html",
+    "text/css",
+    "application/javascript"
+};
+
+void* accept_request(void *c);
 void shutdown_client(int client); 
 void execute_cgi(int client, char * url, char *path, char *method, char *query);
 
@@ -57,8 +62,9 @@ void execute_cgi(int client, char * url, char *path, char *method, char *query);
  * Host: www.host1.com:80
  * [blank line here]
  */
-void accept_request(int client)
+void* accept_request(void *c)
 {
+    int client = (int)c;
     char buf[1024];
     char url[255];
     char method[255];
@@ -66,6 +72,7 @@ void accept_request(int client)
     char *query;
 
     int ex = 0;
+    enum mime_type type = html;
     int n = 0;
     
     n = readline(client, buf, sizeof(buf));
@@ -81,7 +88,7 @@ void accept_request(int client)
     if (strcmp(method, "GET") && strcmp(method, "POST")) {
         http_bad_request(client);
         shutdown_client(client);
-        return;
+        return (void *)1;
     }
 
     while(i < n && buf[i] != ' ') {
@@ -113,6 +120,15 @@ void accept_request(int client)
         }
     } else if (strcmp(filepath + strlen(filepath) - 3, "php") == 0) {
         ex = 1;
+    } else {
+        /*
+         * Determine the type of the file
+         */
+        if (strcmp(filepath + strlen(filepath) - 3, "css") == 0) {
+            type = css;
+        } else if (strcmp(filepath + strlen(filepath) - 2, "js") == 0) {
+            type = js;
+        }
     }
 
 #ifndef PATH_MAX
@@ -122,28 +138,29 @@ void accept_request(int client)
     char *res = realpath(filepath, real);
     if (!res) {
         http_not_found(client);
-        return;
+        return (void *)1;
     }
 
     strncpy(filepath, real, sizeof(filepath));
     printf("%s: %s\n", method, filepath);
     if (!ex) {
-        serve_file(client, filepath);
+        serve_file(client, mime_values[type], filepath);
     } else {
         execute_cgi(client, url, filepath, method, query);
     }
 
     shutdown_client(client);
+    return (void *)0;
 }
 
 void shutdown_client(int client)
 {
     /**
-     * o The proper way to close the client is to call
+     * - The proper way to close the client is to call
      *   shutdown to trigger a FIN
-     * o After that call recv() and wait until it is anything
+     * - After that call recv() and wait until it is anything
      *   other than EAGAIN, EWOULDBLOCK
-     * o Close the client
+     * - Close the client
      */
     shutdown(client, SHUT_WR);
     char c;
@@ -349,7 +366,7 @@ int main(int argc, char *argv[])
     server.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(server_sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        perror("coult not bind to socket");
+        perror("could not bind to socket");
         exit(1);
     }
     
@@ -372,7 +389,7 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        if (pthread_create(&serve_thread, NULL, accept_request, client_sock) < 0) {
+        if (pthread_create(&serve_thread, NULL, accept_request, (void *)client_sock) < 0) {
             perror("Error creating thread");
             exit(1);
         }
